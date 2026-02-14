@@ -396,11 +396,9 @@ FodyWeavers.xsd
 *.sln.iml
 
 ArduinoDemo/
-Assembler/cmake/
-!Assembler/cmake/*.in
-!Assembler/cmake/*.cmake
-Assembler/build/
-Assembler/runtime/
+Assembler/RomASM/
+Assembler/antlr4-runtime/
+Assembler/lib
 Hawk/build/
 Hawk/.antlr/
 Hawk/.vscode/

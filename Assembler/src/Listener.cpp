@@ -27,6 +27,13 @@
 		{
 			firstPass = false;
 		}
+		else
+		{
+			if (assemble_flags & TERMINATORS)
+			{
+				outfile << "*\n";
+			}
+		}
 	}
 	
 	std::string Listener::toLower(std::string str)
@@ -75,7 +82,10 @@
 	void Listener::output(int op, int rA, int rB, int rY, std::string comment)
 	{
 		outfile << toHex(op) << toHex(rA) << toHex(rB) << toHex(rY);
-		if(comment.size() > 0)
+
+		if (assemble_flags & TERMINATORS) outfile << ';';
+
+		if(comment.size() > 0 && (assemble_flags & COMMENTS))
 		{
 			outfile << " // " << comment;
 		}
@@ -88,8 +98,10 @@
 		outfile << toHex((x >> 8) & 0xf);
 		outfile << toHex((x >> 4) & 0xf);
 		outfile << toHex((x >> 0) & 0xf);
-		
-		if(comment.size() > 0)
+
+		if (assemble_flags & TERMINATORS) outfile << ';';
+
+		if(comment.size() > 0 && (assemble_flags & COMMENTS))
 		{
 			outfile << " // " << comment;
 		}
@@ -162,14 +174,14 @@
 			
 			if(ctx->MOV())
 			{
-				
+				std::string s;
 				int imm = 0;
 				if(regs.size() == 2)
 				{
 					op = 0;
 					rA = parseReg(regs[0]);
 					rY = parseReg(regs[1]);
-					
+					s = std::format("Move the value stored in r{} to r{}", rA, rY);
 				}
 				else if(ctx->IMM() || ctx->HEX() || ctx->CHAR())
 				{
@@ -196,6 +208,7 @@
 						}
 						imm = str[0];
 					}
+					s = std::format("Move immediate ({}) into r{}", imm, rY);
 					
 				}
 				else if (ctx->LABELID())
@@ -212,11 +225,12 @@
 					{
 						imm = labelMap[labelID];
 					}
+					s = std::format("Move label ({}:{}) into r{}", labelID, imm, rY);
 				}
-				output(op, rA, rB, rY);
+				output(op, rA, rB, rY, s);
 				if(op == 1)
 				{
-					output(imm);
+					output(imm, std::format("Immediate value ({})", imm));
 				}
 			}
 			else if(ctx->STR())
@@ -224,14 +238,14 @@
 				op = 2;
 				rA = parseReg(regs[1]);
 				rB = parseReg(regs[0]);
-				output(op, rA, rB, rY);
+				output(op, rA, rB, rY, std::format("Store the value in r{} to the memory address stored in r{}", rA, rB));
 			}
 			else if(ctx->LDA())
 			{
 				op = 3;
 				rA = parseReg(regs[0]);
 				rY = parseReg(regs[1]);
-				output(op, rA, rB, rY);
+				output(op, rA, rB, rY, std::format("Load value from memory address stored in r{} to r{}", rA, rY));
 			}
 			else if(ctx->OR())
 			{
@@ -246,7 +260,7 @@
 				{
 					rY = rB;
 				}
-				output(op, rA, rB, rY);
+				output(op, rA, rB, rY, std::format("Perform OR on r{} and r{}, store in r{}", rA, rB, rY));
 			}
 			else if(ctx->INV())
 			{
@@ -260,7 +274,7 @@
 				{
 					rY = rA; 
 				}
-				output(op, rA, rB, rY);
+				output(op, rA, rB, rY, std::format("Perform bitwise NOT on r{}, store in r{}", rA, rY));
 			}
 			else if(ctx->AND())
 			{
@@ -275,7 +289,7 @@
 				{
 					rY = rB;
 				}
-				output(op, rA, rB, rY);
+				output(op, rA, rB, rY, std::format("Perform AND on r{} and r{}, store in r{}", rA,rB,rY));
 			}
 			else if(ctx->XOR())
 			{
@@ -290,7 +304,7 @@
 				{
 					rY = rB;
 				}
-				output(op, rA, rB, rY);
+				output(op, rA, rB, rY, std::format("Perform XOR on r{} and r{}, store in r{}", rA, rB, rY));
 			}
 			else if(ctx->ADD())
 			{
@@ -305,7 +319,7 @@
 				{
 					rY = rB;
 				}
-				output(op, rA, rB, rY);
+				output(op, rA, rB, rY, std::format("Add r{} and r{}, store in r{}", rA, rB, rY));
 			}
 			else if(ctx->SUB())
 			{
@@ -320,7 +334,7 @@
 				{
 					rY = rB;
 				}
-				output(op, rA, rB, rY);
+				output(op, rA, rB, rY, std::format("Subtract r{} from r{}, store in r{}", rA, rB, rY));
 			}
 			else if(ctx->NOT())
 			{
@@ -334,7 +348,7 @@
 				{
 					rY = rA; 
 				}
-				output(op, rA, rB, rY);
+				output(op, rA, rB, rY, std::format("Perform logical NOT on r{}, store in r{}", rA, rY));
 			}
 			else if(ctx->SHR())
 			{
@@ -348,7 +362,7 @@
 				{
 					rY = rA; 
 				}
-				output(op, rA, rB, rY);
+				output(op, rA, rB, rY, std::format("Perform right shift on r{}, store in r{}", rA, rY));
 			}
 			else if(ctx->SHL()) // replicate add instruction
 			{
@@ -363,37 +377,37 @@
 				{
 					rY = rA; 
 				}
-				output(op, rA, rB, rY);
+				output(op, rA, rB, rY, std::format("Perform left shift on r{}, store in r{}", rA, rY));
 			}
 			else if(ctx->PUSH())
 			{
 				op = 12;
 				rA = parseReg(regs[0]);
-				output(op, rA, 0x0, 0x0);
+				output(op, rA, 0x0, 0x0, std::format("Push r{} to the stack", rA));
 			}
 			else if(ctx->CALL())
 			{
 				op = 12;
 				rA = parseReg(regs[0]);
-				output(op, 0x0, 0b1000, 0x0); // push PC to stack
-				output(0xE, rA, 0x0, 0x0); // unconditional jump to M[rA]
+				output(op, 0x0, 0b1000, 0x0, std::format("(CALL): Push PC to the stack")); // push PC to stack
+				output(0xE, rA, 0x0, 0x0, std::format("(CALL): Jump to memory location stored in r{}", rA)); // unconditional jump to M[rA]
 			}
 			else if(ctx->POP())
 			{
 				op = 13;
 				rY = parseReg(regs[0]);
-				output(op, 0x0, 0x0, rY);
+				output(op, 0x0, 0x0, rY, std::format("Pop a value off of the stack and put it into r{}", rY));
 			}
 			else if(ctx->RET())
 			{
 				op = 13;
-				output(op, 0x0, 0b1000, 0x0);
+				output(op, 0x0, 0b1000, 0x0, std::format("(RET): Pop a value off of the stack and put it into PC"));
 			}
 			else if(ctx->JMP())
 			{
 				op = 14;
 				rA = parseReg(regs[0]);
-				output(op, rA, 0x0, 0x0);
+				output(op, rA, 0x0, 0x0, std::format("Set PC to the value in r{}", rA));
 			}
 			else if(ctx->JEZ() || ctx->JNZ() || ctx->JGZ() || ctx->JLZ())
 			{
@@ -401,27 +415,32 @@
 				rA = parseReg(regs[0]);
 				rB = parseReg(regs[1]);
 				int flags = 0;
+				std::string s = std::format("Set PC to the value in r{} if ", rA);
 				if(ctx->JEZ())
 				{
 					flags = 0b0001;
+					s += std::format("r{} == 0", rB);
 				}
 				else if(ctx->JNZ())
 				{
 					flags = 0b0010;
+					s += std::format("r{} != 0", rB);
 				}
 				else if(ctx->JLZ())
 				{
 					flags = 0b0100;
+					s += std::format("r{} < 0", rB);
 				}
 				else if(ctx->JGZ())
 				{
 					flags = 0b1000;
+					s += std::format("r{} > 0", rB);
 				}
-				output(op, rA, rB, flags);
+				output(op, rA, rB, flags, s);
 			}
 			else if (ctx->NOP())
 			{
-				output(0, 0, 0, 0); // nop instruction
+				output(0, 0, 0, 0, std::format("NOP")); // nop instruction
 			}
 		}
 	

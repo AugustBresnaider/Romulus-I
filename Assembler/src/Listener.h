@@ -2,6 +2,8 @@
 #include "romASMParser.h"
 #include "antlr4-runtime.h"
 
+#include "utils.h"
+
 #include <cstdlib>
 #include <fstream>
 #include <string>
